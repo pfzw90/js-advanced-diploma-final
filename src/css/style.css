@@ -94,6 +94,24 @@ body {
   border-style: dashed;
 }
 
+.cell.unavailable::before, .cell.attack-range::after {
+  content: '';
+  display: block;
+  opacity: 0.5;
+  box-sizing: border-box;
+  width: var(--cell-size);
+  height: var(--cell-size);
+  position: absolute;
+}
+
+.cell.unavailable::before {
+  background-color: black;
+}
+
+.cell.attack-range::after {
+  background-color: #f00;
+}
+
 .board.prairie {
   --map-tile-top-left-url: url('../img/prairie/map-tile-top-left.png');
   --map-tile-top-url: url('../img/prairie/map-tile-top.png');

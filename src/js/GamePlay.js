@@ -75,6 +75,7 @@ export default class GamePlay {
    * @param positions array of PositionedCharacter objects
    */
   redrawPositions(positions) {
+    this.hideRanges();
     for (const cell of this.cells) {
       cell.innerHTML = '';
     }
@@ -204,6 +205,24 @@ export default class GamePlay {
     const cell = this.cells[index];
     cell.classList.remove(...Array.from(cell.classList)
       .filter((o) => o.startsWith('selected')));
+  }
+
+  showRanges(moverange, atkrange) {
+    this.cells.forEach((cell, i) => {
+      if (!moverange.includes(i)) {
+        cell.classList.add('unavailable');
+      }
+      if (atkrange.includes(i)) {
+        cell.classList.add('attack-range');
+      }
+    });
+  }
+
+  hideRanges() {
+    this.cells.forEach((cell) => {
+      cell.classList.remove(...Array.from(cell.classList)
+        .filter((o) => o.startsWith('unavailable') || o.startsWith('attack')));
+    });
   }
 
   deselectCell(index) {

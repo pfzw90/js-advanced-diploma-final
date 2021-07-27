@@ -171,7 +171,8 @@ export default class GameController {
     this.playerteam = new Team('player', generateTeam([...classGenerator(playerClasses)], 1, 2));
     this.enemyteam = new Team('enemy', generateTeam([...classGenerator(enemyClasses)], 1, 2));
     this.positions = new Set(Array(this.boardSize ** 2).keys());
-    this.positionTeams(this.gameState.level || 1);
+    this.gameState.level = 1;
+    this.positionTeams(1);
     this.gamePlay.redrawPositions(this.playerteam.characters.concat(this.enemyteam.characters));
     this.gameState.stage = 'select';
     this.setScore();
@@ -191,15 +192,17 @@ export default class GameController {
     }
 
     this.gameState.selectedChar = char;
+    this.gamePlay.hideRanges();
     this.findRanges();
+    if (playerClasses.find((c) => c.type === char.character.type)) this.gamePlay.showRanges(char.moveRange, char.attackRange);
   }
 
   findRange(index, position, r, type) {
     const range = new Set();
     const { row, col } = position;
-    const left = ((col - r) <= 0) ? col : r;
+    const left = ((col - r) <= 0) ? col - 1 : r;
     const right = ((col + r) >= this.boardSize) ? this.boardSize - col : r;
-    const top = ((row - r) <= 0) ? row : r;
+    const top = ((row - r) <= 0) ? row - 1 : r;
     const bottom = ((row + r) >= this.boardSize) ? this.boardSize - row : r;
 
     for (let i = -top; i <= bottom; i += 1) {
@@ -223,7 +226,7 @@ export default class GameController {
     char.moveRange = this.findRange(char.position, { row, col }, char.character.moveradius, 'move');
   }
 
-  onCellClick(index) {
+  async onCellClick(index) {
     const { stage } = this.gameState;
     if (stage === 'select' && !this.positions.has(index)) {
       const char = this.playerteam.characters.concat(this.enemyteam.characters).filter((c) => c.position === index)[0];
@@ -251,26 +254,28 @@ export default class GameController {
         const target = enemies.filter((c) => c.position === index)[0];
         if (attacker.attackRange.includes(index)) {
           const damage = Math.max(attacker.character.attack - target.character.defence, attacker.character.attack * 0.1);
-          this.gamePlay.showDamage(index, damage);
-          target.character.health -= damage;
-          this.gamePlay.redrawPositions(allies.concat(enemies));
-          if (target.character.health <= 0) {
-            this.positions.add(index);
-            if (stage === 'move') this.enemyteam.characters.splice(this.enemyteam.characters.indexOf(target), 1);
-            else this.playerteam.characters.splice(this.playerteam.characters.indexOf(target), 1);
-            if (stage === 'move' && this.enemyteam.characters.length === 0) this.levelUp();
-            else if (stage === 'botmove' && this.playerteam.characters.length === 0) this.lose();
-            else {
+          const dmgAnimation = this.gamePlay.showDamage(index, damage);
+          await dmgAnimation.then(() => {
+            target.character.health -= damage;
+            this.gamePlay.redrawPositions(this.playerteam.characters.concat(this.enemyteam.characters));
+            if (target.character.health <= 0) {
+              this.positions.add(index);
+              if (stage === 'move') this.enemyteam.characters.splice(this.enemyteam.characters.indexOf(target), 1);
+              else this.playerteam.characters.splice(this.playerteam.characters.indexOf(target), 1);
+              if (stage === 'move' && this.enemyteam.characters.length === 0) this.levelUp();
+              else if (stage === 'botmove' && this.playerteam.characters.length === 0) this.lose();
+              else {
+                this.gamePlay.redrawPositions(allies.concat(enemies));
+                if (stage !== 'botmove') this.botMove();
+                this.gameState.stage = 'select';
+              }
+            } else {
+              this.gamePlay.deselectCell(attacker.position);
               this.gamePlay.redrawPositions(allies.concat(enemies));
               if (stage !== 'botmove') this.botMove();
               this.gameState.stage = 'select';
             }
-          } else {
-            this.gamePlay.deselectCell(attacker.position);
-            this.gamePlay.redrawPositions(allies.concat(enemies));
-            if (stage !== 'botmove') this.botMove();
-            this.gameState.stage = 'select';
-          }
+          });
         } else {
           GamePlay.showError('Цель слишком далеко!');
           this.gameState.stage = 'move';
@@ -284,7 +289,9 @@ export default class GameController {
         this.positions.delete(index);
         char.position = index;
         this.gamePlay.redrawPositions(this.playerteam.characters.concat(this.enemyteam.characters));
-        if (stage !== 'botmove') this.botMove();
+        if (stage !== 'botmove') {
+          this.botMove();
+        }
         this.gameState.stage = 'select';
       } else {
         GamePlay.showError('Недоступно!');
@@ -329,6 +336,7 @@ export default class GameController {
   }
 
   onLoadGameClick() {
+    this.gamePlay.deselectCell(this.gameState.selectedChar.position);
     this.init();
   }
 
